@@ -1,0 +1,546 @@
+--[[
+    wzeus roblox - Hub Tổng Hợp (Đã cập nhật danh sách phát nhạc & nút đổi nhạc)
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local SoundService = game:GetService("SoundService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Xóa UI cũ nếu chạy lại
+local old = PlayerGui:FindFirstChild("wzeusHub")
+if old then old:Destroy() end
+
+local oldBtn = PlayerGui:FindFirstChild("wzeusToggle")
+if oldBtn then oldBtn:Destroy() end
+
+if SoundService:FindFirstChild("wzeusBGM") then
+    SoundService.wzeusBGM:Destroy()
+end
+
+-- Danh sách ID bài hát
+local playlist = {
+    "rbxassetid://98361989582185",
+    "rbxassetid://124384558101360",
+    "rbxassetid://91897652967267",
+    "rbxassetid://114560935444864",
+    "rbxassetid://86917170271693",
+    "rbxassetid://79277371759525"
+}
+local currentTrackIndex = 1
+
+-- Phát nhạc nền
+local BGM = Instance.new("Sound")
+BGM.Name = "wzeusBGM"
+BGM.SoundId = playlist[currentTrackIndex]
+BGM.Volume = 0.6
+BGM.Looped = true
+BGM.Parent = SoundService
+BGM:Play()
+
+local function playClickSound()
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://4590662766"
+    sound.Volume = 1
+    sound.Parent = SoundService
+    sound:Play()
+    sound.Ended:Connect(function()
+        sound:Destroy()
+    end)
+end
+
+-- Main ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "wzeusHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+local neonObjects = {}
+local function applyNeonEffect(obj, isText)
+    table.insert(neonObjects, {Object = obj, IsText = isText})
+end
+
+-- Tối ưu mượt không lag (chạy ~20 lần/giây)
+task.spawn(function()
+    while true do
+        local hue = (tick() * 0.3) % 1
+        local neonColor = Color3.fromHSV(hue, 1, 1)
+
+        for _, data in ipairs(neonObjects) do
+            if data.Object and data.Object.Parent then
+                if data.IsText then
+                    data.Object.TextColor3 = neonColor
+                else
+                    data.Object.Color = Color3.fromHSV(hue, 1, 1)
+                end
+            end
+        end
+        task.wait(0.05)
+    end
+end)
+
+local function createStroke(obj)
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Parent = obj
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+        ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 128, 0)),
+        ColorSequenceKeypoint.new(0.4, Color3.fromRGB(255, 255, 0)),
+        ColorSequenceKeypoint.new(0.6, Color3.fromRGB(0, 255, 0)),
+        ColorSequenceKeypoint.new(0.8, Color3.fromRGB(0, 255, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(128, 0, 255))
+    })
+    grad.Rotation = 45
+    grad.Parent = stroke
+
+    applyNeonEffect(stroke, false)
+end
+
+-- Khung chính thu gọn
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 240, 0, 315)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = Main
+createStroke(Main)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundTransparency = 1
+Title.Text = "wzeus roblox"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.Parent = Main
+applyNeonEffect(Title, true)
+
+local Line = Instance.new("Frame")
+Line.Size = UDim2.new(1, 0, 0, 1)
+Line.Position = UDim2.new(0, 0, 0, 38)
+Line.BorderSizePixel = 0
+Line.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Line.Parent = Main
+applyNeonEffect(Line, false)
+
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(1, -12, 0, 28)
+TabContainer.Position = UDim2.new(0, 6, 0, 45)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = Main
+
+local function createTabBtn(name, xPos, sizeW)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(sizeW, -2, 1, 0)
+    Btn.Position = UDim2.new(xPos, 0, 0, 0)
+    Btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    Btn.BorderSizePixel = 0
+    Btn.Text = name
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 9
+    Btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    Btn.Parent = TabContainer
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Btn
+    createStroke(Btn)
+    return Btn
+end
+
+local TabNoKeyBtn = createTabBtn("NO KEY", 0, 0.25)
+local TabGetKeyBtn = createTabBtn("GET KEY", 0.25, 0.25)
+local TabServerBtn = createTabBtn("SERVER", 0.50, 0.25)
+local TabInfoBtn   = createTabBtn("INFO", 0.75, 0.25)
+
+TabNoKeyBtn.BackgroundColor3 = Color3.fromRGB(40, 0, 80)
+TabNoKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, -12, 0, 220)
+ContentFrame.Position = UDim2.new(0, 6, 0, 80)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = Main
+
+local function createPage()
+    local page = Instance.new("ScrollingFrame")
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.CanvasSize = UDim2.new(0, 0, 0, 520)
+    page.ScrollBarThickness = 3
+    page.Visible = false
+    page.Parent = ContentFrame
+    return page
+end
+
+local NoKeyPage = createPage()
+NoKeyPage.Visible = true
+local GetKeyPage = createPage()
+local ServerPage = createPage()
+local InfoPage = createPage()
+
+local function createButton(parentPage, text, ypos, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, -4, 0, 38)
+    Btn.Position = UDim2.new(0, 2, 0, ypos)
+    Btn.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    Btn.BorderSizePixel = 0
+    Btn.Text = text
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 12
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Parent = parentPage
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = Btn
+    createStroke(Btn)
+
+    Btn.MouseButton1Click:Connect(function()
+        playClickSound()
+        local success, err = pcall(callback)
+        if success then
+            Btn.Text = "THÀNH CÔNG!"
+            task.wait(1)
+            Btn.Text = text
+        else
+            Btn.Text = "LỖI!"
+            warn(tostring(err))
+            task.wait(1)
+            Btn.Text = text
+        end
+    end)
+end
+
+-- 1. Mục NO KEY:
+createButton(NoKeyPage, "MIRANDA HUB", 0, function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/kadit9999/stealanegg/refs/heads/main/Miranda.lua"))()
+end)
+
+createButton(NoKeyPage, "LENNON HUB", 45, function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/lennonxscripts/lennonhubv2/refs/heads/main/stealaneggv2"))()
+end)
+
+createButton(NoKeyPage, "BLYXO HUB", 90, function()
+    loadstring(game:HttpGet("https://blyxo-hub-website.vercel.app/api/loaders/deliver?id=blyxohub-test-fc5d93fd&version=1.0.0"))()
+end)
+
+createButton(NoKeyPage, "VOID SHELL HUB", 135, function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/VoidShell-null/VoidShell-Hub/refs/heads/main/Scripts/StealAnEgg.luau"))()
+end)
+
+createButton(NoKeyPage, "LKZ HUB", 180, function()
+    loadstring(game:HttpGet("https://api.luarmor.net/files/v4/loaders/65bf3459d87ba3ac46350e154b640929.lua"))()
+end)
+
+createButton(NoKeyPage, "HORIZONS HUB", 225, function()
+    getgenv().script_key = "Trial"
+    loadstring(game:HttpGet("https://api.getpolsec.com/scripts/hosted/6582551b42d21c6b7eb55f1d76d8d50ce53cb35592093d6615b5e83437594dc0.lua"))()
+end)
+
+createButton(NoKeyPage, "NASI HUB", 270, function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/JualNasiRendang/loader/refs/heads/main/main.lua"))()
+end)
+
+createButton(NoKeyPage, "BK'S HUB", 315, function()
+    loadstring(game:HttpGet("https://api.luarmor.net/files/v4/loaders/9ee4edde227ac85f50872bf9e4226508.lua"))()
+end)
+
+-- 2. Mục GET KEY:
+createButton(GetKeyPage, "SPEED HUB X", 0, function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua", true))()
+end)
+
+createButton(GetKeyPage, "BF HUB", 45, function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/hanniii1/Loader/refs/heads/main/BFLoader.lua"))()
+end)
+
+createButton(GetKeyPage, "FYY HUB", 90, function()
+    loadstring(game:HttpGet("https://FyyCommunity.com"))()
+end)
+
+-- 3. Mục SERVER:
+createButton(ServerPage, "SERVER HOP (PASTEFY)", 0, function()
+    loadstring(game:HttpGet("https://pastefy.app/YoZocJ8O/raw"))()
+end)
+
+createButton(ServerPage, "LOW SERVER FINDER GUI", 45, function()
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Low-Server-Finder-GUI-30660"))()
+end)
+
+-- 4. Mục INFO:
+local function createCopyButton(text, link, ypos)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, -4, 0, 38)
+    Btn.Position = UDim2.new(0, 2, 0, ypos)
+    Btn.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    Btn.BorderSizePixel = 0
+    Btn.Text = text
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 11
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Parent = InfoPage
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = Btn
+    createStroke(Btn)
+
+    Btn.MouseButton1Click:Connect(function()
+        playClickSound()
+        setclipboard(link)
+        local oldText = Btn.Text
+        Btn.Text = "ĐÃ COPY LINK!"
+        task.wait(1)
+        Btn.Text = oldText
+    end)
+end
+
+createCopyButton("🎵 COPY TIKTOK", "Https://www.tiktok.com/@wzeus.roblox?_r=1&_t=ZS-99iTxM9juMv", 0)
+createCopyButton("💬 COPY DISCORD", "https://discord.gg/WePmKCBusp", 42)
+
+-- Nút Bật / Tắt Nhạc nền ở Tab Info (y = 84)
+local MusicButton = Instance.new("TextButton")
+MusicButton.Size = UDim2.new(1, -4, 0, 38)
+MusicButton.Position = UDim2.new(0, 2, 0, 84)
+MusicButton.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MusicButton.BorderSizePixel = 0
+MusicButton.Text = "TẮT / BẬT NHẠC"
+MusicButton.Font = Enum.Font.GothamBold
+MusicButton.TextSize = 12
+MusicButton.TextColor3 = Color3.fromRGB(255, 255, 0)
+MusicButton.Parent = InfoPage
+
+local MusicC = Instance.new("UICorner")
+MusicC.CornerRadius = UDim.new(0, 8)
+MusicC.Parent = MusicButton
+createStroke(MusicButton)
+
+local musicPlaying = true
+MusicButton.MouseButton1Click:Connect(function()
+    playClickSound()
+    musicPlaying = not musicPlaying
+    if SoundService:FindFirstChild("wzeusBGM") then
+        SoundService.wzeusBGM.Playing = musicPlaying
+    end
+    if musicPlaying then
+        MusicButton.Text = "ĐANG BẬT NHẠC"
+    else
+        MusicButton.Text = "ĐÃ TẮT NHẠC"
+    end
+    task.wait(1)
+    MusicButton.Text = "TẮT / BẬT NHẠC"
+end)
+
+-- Nút Đổi Nhạc ở Tab Info (y = 126)
+local NextMusicBtn = Instance.new("TextButton")
+NextMusicBtn.Size = UDim2.new(1, -4, 0, 38)
+NextMusicBtn.Position = UDim2.new(0, 2, 0, 126)
+NextMusicBtn.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+NextMusicBtn.BorderSizePixel = 0
+NextMusicBtn.Text = "ĐỔI BÀI NHẠC TIẾP THEO"
+NextMusicBtn.Font = Enum.Font.GothamBold
+NextMusicBtn.TextSize = 12
+NextMusicBtn.TextColor3 = Color3.fromRGB(0, 255, 255)
+NextMusicBtn.Parent = InfoPage
+
+local NextMusicC = Instance.new("UICorner")
+NextMusicC.CornerRadius = UDim.new(0, 8)
+NextMusicC.Parent = NextMusicBtn
+createStroke(NextMusicBtn)
+
+NextMusicBtn.MouseButton1Click:Connect(function()
+    playClickSound()
+    currentTrackIndex = currentTrackIndex + 1
+    if currentTrackIndex > #playlist then
+        currentTrackIndex = 1
+    end
+    if SoundService:FindFirstChild("wzeusBGM") then
+        SoundService.wzeusBGM.SoundId = playlist[currentTrackIndex]
+        SoundService.wzeusBGM:Play()
+        musicPlaying = true
+    end
+    NextMusicBtn.Text = "ĐÃ ĐỔI BÀI (" .. currentTrackIndex .. "/" .. #playlist .. ")"
+    task.wait(1)
+    NextMusicBtn.Text = "ĐỔI BÀI NHẠC TIẾP THEO"
+end)
+
+-- Nút Đóng / Huỷ Hub đặt ở Tab Info (y = 168)
+local ExtraButton = Instance.new("TextButton")
+ExtraButton.Size = UDim2.new(1, -4, 0, 38)
+ExtraButton.Position = UDim2.new(0, 2, 0, 168)
+ExtraButton.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+ExtraButton.BorderSizePixel = 0
+ExtraButton.Text = "ĐÓNG / HUỶ HUB"
+ExtraButton.Font = Enum.Font.GothamBold
+ExtraButton.TextSize = 12
+ExtraButton.TextColor3 = Color3.fromRGB(255, 60, 60)
+ExtraButton.Parent = InfoPage
+
+local ExtraC = Instance.new("UICorner")
+ExtraC.CornerRadius = UDim.new(0, 8)
+ExtraC.Parent = ExtraButton
+createStroke(ExtraButton)
+
+ExtraButton.MouseButton1Click:Connect(function()
+    playClickSound()
+    if SoundService:FindFirstChild("wzeusBGM") then
+        SoundService.wzeusBGM:Destroy()
+    end
+    ScreenGui:Destroy()
+    if PlayerGui:FindFirstChild("wzeusToggle") then
+        PlayerGui.wzeusToggle:Destroy()
+    end
+end)
+
+-- Logic chuyển Tab cho 4 nút
+local function switchTab(activeBtn, activePage)
+    playClickSound()
+    NoKeyPage.Visible = false
+    GetKeyPage.Visible = false
+    ServerPage.Visible = false
+    InfoPage.Visible = false
+
+    TabNoKeyBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    TabNoKeyBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    TabGetKeyBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    TabGetKeyBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    TabServerBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    TabServerBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    TabInfoBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    TabInfoBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+
+    activePage.Visible = true
+    activeBtn.BackgroundColor3 = Color3.fromRGB(40, 0, 80)
+    activeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+end
+
+TabNoKeyBtn.MouseButton1Click:Connect(function()
+    switchTab(TabNoKeyBtn, NoKeyPage)
+end)
+
+TabGetKeyBtn.MouseButton1Click:Connect(function()
+    switchTab(TabGetKeyBtn, GetKeyPage)
+end)
+
+TabServerBtn.MouseButton1Click:Connect(function()
+    switchTab(TabServerBtn, ServerPage)
+end)
+
+TabInfoBtn.MouseButton1Click:Connect(function()
+    switchTab(TabInfoBtn, InfoPage)
+end)
+
+-- Kéo thả bảng menu chính
+local dragging, dragInput, dragStart, startPos
+Main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+Main.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- NÚT TRÒN TOGGLE MỞ HUB (42x42 - Logo ⚡)
+local ToggleGui = Instance.new("ScreenGui")
+ToggleGui.Name = "wzeusToggle"
+ToggleGui.ResetOnSpawn = false
+ToggleGui.Parent = PlayerGui
+
+local CircleBtn = Instance.new("TextButton")
+CircleBtn.Name = "CircleBtn"
+CircleBtn.Size = UDim2.new(0, 42, 0, 42)
+CircleBtn.Position = UDim2.new(0, 15, 0, 15)
+CircleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+CircleBtn.BorderSizePixel = 0
+CircleBtn.Text = "⚡"
+CircleBtn.Font = Enum.Font.GothamBold
+CircleBtn.TextSize = 18
+CircleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CircleBtn.AutoButtonColor = false
+CircleBtn.Parent = ToggleGui
+
+local CircleCorner = Instance.new("UICorner")
+CircleCorner.CornerRadius = UDim.new(1, 0)
+CircleCorner.Parent = CircleBtn
+createStroke(CircleBtn)
+
+applyNeonEffect(CircleBtn, true)
+
+-- Kéo thả nút tròn nổi
+local tDragging, tInput, tStart, tPos
+CircleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        tDragging = true
+        tStart = input.Position
+        tPos = CircleBtn.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                tDragging = false
+            end
+        end)
+    end
+end)
+
+CircleBtn.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        tInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == tInput and tDragging then
+        local delta = input.Position - tStart
+        CircleBtn.Position = UDim2.new(
+            tPos.X.Scale,
+            tPos.X.Offset + delta.X,
+            tPos.Y.Scale,
+            tPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Logic bấm nút tròn để ẩn/hiện Hub
+local isOpen = true
+CircleBtn.MouseButton1Click:Connect(function()
+    playClickSound()
+    isOpen = not isOpen
+    Main.Visible = isOpen
+end)
